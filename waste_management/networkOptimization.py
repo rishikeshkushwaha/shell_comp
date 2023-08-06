@@ -2,20 +2,22 @@ from pyomo.environ import ConcreteModel, Var, Objective, NonNegativeReals, Const
 from pyomo.environ import *
 import pandas as pd
 import time
-
+import os
+os.environ['NEOS_EMAIL'] = 'rishikeshkushwaha@gmail.com'
+neos= True
 s = time.time()
 M = ConcreteModel()
 year = '2018'
-sites = 10
+sites = 100
 
-forecast_demand = pd.read_csv('waste_management/forecast_arima_2018-19.csv')
+forecast_demand = pd.read_csv('waste_management\\forecast_arima_2018-19.csv')
 print(forecast_demand.columns)
 
 
 def demand_function(M, i, ):
     return forecast_demand[year].iloc[i-1]
 
-distance_df = pd.read_csv('waste_management/dataset/Distance_Matrix.csv')
+distance_df = pd.read_csv('waste_management\\dataset\\Distance_Matrix.csv')
 
 distance_np = distance_df.values
 def distance_function(M, i, j):
@@ -41,17 +43,16 @@ a, b, c = 0.001, 1, 1
 
 print('data preprocessing done --------------------------------')
 def obj_expression(M):
-    return a * quicksum(distance_np[i-1, j-1] * (M.biomas[i, j] + M.pallet[i,j]) for i in M.I for j in M.J)
-# + c*CAP_Depot-quicksum(M.biomas[i,j] for i in M.I for j in M.J)
-#  + c*CAP_Refinery-quicksum(M.pallet[i,j] for i in M.I for j in M.J)
+    return a * quicksum(distance_np[i-1, j-1] * (M.biomass[i, j] + M.pallet[i,j]) for i in M.I for j in M.J)
++ c*CAP_Depot-quicksum(M.biomass[i,j] for i in M.I for j in M.J) + c*CAP_Refinery-quicksum(M.pallet[i,j] for i in M.I for j in M.J)
 
 
-M.OBJ = Objective(rule=obj_expression, sense=minimize)
+M.OBJ = Objective(rule=obj_expression, sense=maximize)
 
 
 def c2(M, i,j):
     return M.biomass[i, j] <= M.d[i]
-# M.c2_c = Constraint(M.I,M.J, rule=c2)
+M.c2_c = Constraint(M.I,M.J, rule=c2)
 
 def c22(M, i,j):
     return M.biomass[i, j] <= M.d[j]
@@ -83,18 +84,22 @@ def c7(M):
 M.c7_c = Constraint(rule=c7)
 
 def c8(M):
-    return quicksum(M.biomass[i, j] for i in M.I for j in M.J) <= quicksum(M.pallets[i, j] for i in M.I for j in M.J)
+    return quicksum(M.biomass[i, j] for i in M.I for j in M.J) <= quicksum(M.pallet[i, j] for i in M.I for j in M.J)
 
 
 M.c8_c = Constraint(rule=c8)
 M.pprint()
 print('Modeling done...')
 M.write("network_opt_"+str(sites)+".lp", io_options = {"symbolic_solver_labels":True})
-solvername = 'cplex'
-opt = SolverFactory(solvername)
+if neos == True:
+    solver_manager = SolverManagerFactory('neos')
+    results = solver_manager.solve(M, opt='cplex')
+else:
+    solvername = 'cplex'
+    opt = SolverFactory(solvername)
 # opt.options["preprocessing_presolve"]='n'
 # opt.options["mipgap"]=0.05
-results = opt.solve(M, tee=True)
+    results = opt.solve(M, tee=True)
 print(results)
 result_data = []
 # for j in M.J:
