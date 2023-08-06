@@ -6,14 +6,14 @@ import time
 s = time.time()
 M = ConcreteModel()
 year = '2018'
-sites = 2417
+sites = 10
 
 forecast_demand = pd.read_csv('waste_management/forecast_arima_2018-19.csv')
 print(forecast_demand.columns)
 
 
 def demand_function(M, i, ):
-    return forecast_demand[year].iloc[i]
+    return forecast_demand[year].iloc[i-1]
 
 distance_df = pd.read_csv('waste_management/dataset/Distance_Matrix.csv')
 
@@ -27,62 +27,69 @@ M.I = RangeSet(sites)
 M.J = RangeSet(sites)
 M.K = RangeSet(sites)
 M.d = Param(M.I, initialize=demand_function)
-M.distance = Param(M.I, M.J, initialize=distance_function)
+# M.distance = Param(M.I, M.J, initialize=distance_function)
 
 CAP_Depot = 20000
 CAP_Refinery = 100000
 
-M.pallet = Var(M.J, M.K, within=NonNegativeReals)
-M.biomass = Var(M.I, M.J, within=NonNegativeReals)
-M.x = Var(M.I, within=Binary) #selected as 
+M.pallet = Var(M.J, M.K, within=PositiveReals)
+M.biomass = Var(M.I, M.J, within=PositiveReals)
+M.x = Var(M.I, within=Binary) #selected as
 M.y = Var(M.I, within=Binary)
 
-r = 1.5
-a, b, c = 1, 25, 600
+a, b, c = 0.001, 1, 1
 
-
+print('data preprocessing done --------------------------------')
 def obj_expression(M):
-    return a * quicksum(M.ds[i, j] * M.dist[i, j] for i in M.I for j in M.J) + c * quicksum(
-        M.scs[j] + r * M.fcs[j] for j in M.J)
+    return a * quicksum(distance_np[i-1, j-1] * (M.biomas[i, j] + M.pallet[i,j]) for i in M.I for j in M.J)
+# + c*CAP_Depot-quicksum(M.biomas[i,j] for i in M.I for j in M.J)
+#  + c*CAP_Refinery-quicksum(M.pallet[i,j] for i in M.I for j in M.J)
 
 
 M.OBJ = Objective(rule=obj_expression, sense=minimize)
 
 
-def c2(M, j):
-    return M.biomass[i] <= M.d[i]
-M.c2_c = Constraint(M.J, rule=c2)
+def c2(M, i,j):
+    return M.biomass[i, j] <= M.d[i]
+# M.c2_c = Constraint(M.I,M.J, rule=c2)
+
+def c22(M, i,j):
+    return M.biomass[i, j] <= M.d[j]
+# M.c22_c = Constraint(M.I,M.J, rule=c22)
+
+def c3(M, i):
+    return quicksum(M.biomass[i, j] for j in M.J) <= 20000 * M.x[i]
+M.c3_c = Constraint(M.I, rule=c3)
 
 
-def c3(M, j):
-    return M.scs[j] >= M.scs_e[j]
+def c4(M, i):
+    return quicksum(M.pallet[i, j] for j in M.J) <= 100000 * M.y[i]
+M.c4_c = Constraint(M.I, rule=c4)
 
 
-M.c4_c = Constraint(M.J, rule=c4)
+def c5(M):
+    return quicksum(M.x[i] for i in M.I) <= 25
+# M.c5_c = Constraint(rule=c5)
+
+def c6(M):
+    return quicksum(M.y[i] for i in M.I) <= 5
 
 
-def c42(M, j):
-    return M.fcs[j] >= M.fcs_e[j]
+# M.c6_c = Constraint(rule=c6)
+def c7(M):
+    return quicksum(M.biomass[i, j] for i in M.I for j in M.J) >= 0.8 * quicksum(M.d[i] for i in M.I)
 
 
-M.c42_c = Constraint(M.J, rule=c42)
+M.c7_c = Constraint(rule=c7)
+
+def c8(M):
+    return quicksum(M.biomass[i, j] for i in M.I for j in M.J) <= quicksum(M.pallets[i, j] for i in M.I for j in M.J)
 
 
-def c5(M, j):
-    return quicksum(M.ds[i, j] for i in M.I) <= M.scs[j] * CAP_scs + M.fcs[j] * CAP_fcs
-
-
-M.c5_c = Constraint(M.J, rule=c5)
-
-
-def c6(M, i):
-    return quicksum(M.ds[i, j] for j in M.J) == forecast_demand_dict[year][i]
-
-
-M.c6_c = Constraint(M.J, rule=c6)
-
+M.c8_c = Constraint(rule=c8)
+M.pprint()
 print('Modeling done...')
-M.write("network_opt.lp")
+M.write("network_opt_"+str(sites)+".lp", io_options = {"symbolic_solver_labels":True})
 solvername = 'cplex'
 opt = SolverFactory(solvername)
 # opt.options["preprocessing_presolve"]='n'
@@ -90,16 +97,16 @@ opt = SolverFactory(solvername)
 results = opt.solve(M, tee=True)
 print(results)
 result_data = []
-for j in M.J:
-    result_data.append(
-        {"data_type": 'SCS', "demand_point_index": None, "supply_point_index": j, "value": M.scs[j].value, })
-for j in M.J:
-    result_data.append(
-        {"data_type": 'FCS', "demand_point_index": None, "supply_point_index": j, "value": M.fcs[j].value, })
-for i in M.I:
-    for j in M.J:
-        result_data.append(
-            {"data_type": 'DS', "demand_point_index": i, "supply_point_index": j, "value": M.ds[i, j].value, })
+# for j in M.J:
+#     result_data.append(
+#         {"data_type": 'SCS', "demand_point_index": None, "supply_point_index": j, "value": M.scs[j].value, })
+# for j in M.J:
+#     result_data.append(
+#         {"data_type": 'FCS', "demand_point_index": None, "supply_point_index": j, "value": M.fcs[j].value, })
+# for i in M.I:
+#     for j in M.J:
+#         result_data.append(
+#             {"data_type": 'DS', "demand_point_index": i, "supply_point_index": j, "value": M.ds[i, j].value, })
 
 result_summary = pd.DataFrame(result_data)
 result_summary.to_csv('result.csv')
