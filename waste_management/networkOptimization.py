@@ -8,7 +8,7 @@ neos= True
 s = time.time()
 M = ConcreteModel()
 year = '2018'
-sites = 100
+sites = 10
 
 forecast_demand = pd.read_csv('waste_management\\forecast_arima_2018-19.csv')
 print(forecast_demand.columns)
@@ -102,17 +102,28 @@ else:
     results = opt.solve(M, tee=True)
 print(results)
 result_data = []
-# for j in M.J:
-#     result_data.append(
-#         {"data_type": 'SCS', "demand_point_index": None, "supply_point_index": j, "value": M.scs[j].value, })
-# for j in M.J:
-#     result_data.append(
-#         {"data_type": 'FCS', "demand_point_index": None, "supply_point_index": j, "value": M.fcs[j].value, })
-# for i in M.I:
-#     for j in M.J:
-#         result_data.append(
-#             {"data_type": 'DS', "demand_point_index": i, "supply_point_index": j, "value": M.ds[i, j].value, })
-
+for i in M.I:
+    result_data.append(
+        {"data_type": 'depot_location', "year": 20182019, "source_index": i, "destination": None,"value": None})
+for j in M.J:
+    result_data.append(
+        {"data_type": 'refinery_location', "year": 20182019, "source_index": i, "destination": None,"value": None})
+for i in M.I:
+        result_data.append(
+            {"data_type": 'biomass_forecast', "year": 2018, "source_index": i-1, "destination": None,"value": forecast_demand.iloc[i-1]})
+for i in M.I:
+        result_data.append(
+            {"data_type": 'biomass_forecast', "year": 2019, "source_index": i-1, "destination": None,"value": forecast_demand.iloc[i-1]*1.2})
+for i in M.I:
+    for j in M.J:
+        result_data.append(
+            {"data_type": 'biomass_demand_supply', "year": 2018, "source_index": i - 1, "destination": j-1,
+             "value": M.biomass[i,j].value})
+for i in M.I:
+    for j in M.J:
+        result_data.append(
+            {"data_type": 'pellet_demand_supply', "year": 2018,"source_index": i - 1, "destination": j-1,
+             "value": M.pallet[i,j].value})
 result_summary = pd.DataFrame(result_data)
-result_summary.to_csv('result.csv')
+result_summary.to_csv('result.csv',index=False)
 print(time.time() - s)
