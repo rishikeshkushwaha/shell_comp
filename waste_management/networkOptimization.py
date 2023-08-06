@@ -8,51 +8,34 @@ M = ConcreteModel()
 year = '2018'
 sites = 2417
 
-forecast_demand = pd.read_csv('forecast_arima_2018-19.csv')
-infra = pd.read_csv('exisiting_EV_infra')
-forecast_demand[year] = forecast_demand[year] * 1.1
+forecast_demand = pd.read_csv('waste_management/forecast_arima_2018-19.csv')
+print(forecast_demand.columns)
 
 
 def demand_function(M, i, ):
     return forecast_demand[year].iloc[i]
 
+distance_df = pd.read_csv('waste_management/dataset/Distance_Matrix.csv')
 
-def scs_function(M, j):
-    return infra['existing_num_SCS'].iloc[j]
-
-
-def fcs_function(M, j):
-    return infra['existing_num_FCS'].iloc[j]
-
-
-def ps_function(M, j):
-    return infra['total_parking_slots'].iloc[j]
+distance_np = distance_df.values
+def distance_function(M, i, j):
+    return distance_np[i][j]
+forecast_demand_dict = forecast_demand.set_index('Index').to_dict()
 
 
-forecast_demand_dict = forecast_demand.set_index('demand_point_index').to_dict()
-infra_dict = infra.set_index('supply_point_index').to_dict()
-
-
-def dist_func(M, i, j):
-    lat1 = forecast_demand_dict['x_coordinate'][i]
-    long1 = forecast_demand_dict['y_coordinate'][i]
-    lat2 = infra_dict['x_coordinate'][j]
-    long2 = infra_dict['y_coordinate'][j]
-    return haversine(long1, lat1, long2, lat2)
-
-
+M.I = RangeSet(sites)
+M.J = RangeSet(sites)
+M.K = RangeSet(sites)
 M.d = Param(M.I, initialize=demand_function)
-M.scs_e = Param(M.J, initialize=scs_function)
-M.fcs_e = Param(M.J, initialize=fcs_function)
-M.ps = Param(M.J, initialize=ps_function)
+M.distance = Param(M.I, M.J, initialize=distance_function)
 
-CAP_scs = 200
-CAP_fcs = 400
+CAP_Depot = 20000
+CAP_Refinery = 100000
 
-M.dist = Param(M.I, M.J, initialize=dist_func)
-M.ds = Var(M.I, M.J, within=NonNegativeReals)
-M.scs = Var(M.J, within=NonNegativeIntegers)
-M.fcs = Var(M.J, within=NonNegativeIntegers)
+M.pallet = Var(M.J, M.K, within=NonNegativeReals)
+M.biomass = Var(M.I, M.J, within=NonNegativeReals)
+M.x = Var(M.I, within=Binary) #selected as 
+M.y = Var(M.I, within=Binary)
 
 r = 1.5
 a, b, c = 1, 25, 600
@@ -66,14 +49,12 @@ def obj_expression(M):
 M.OBJ = Objective(rule=obj_expression, sense=minimize)
 
 
+def c2(M, j):
+    return M.biomass[i] <= M.d[i]
+M.c2_c = Constraint(M.J, rule=c2)
+
+
 def c3(M, j):
-    return M.scs[j] + M.fcs[j] >= M.ps[j]
-
-
-M.c3_c = Constraint(M.J, rule=c3)
-
-
-def c4(M, j):
     return M.scs[j] >= M.scs_e[j]
 
 
