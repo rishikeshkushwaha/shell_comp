@@ -3,12 +3,12 @@ from pyomo.environ import *
 import pandas as pd
 import time
 import os
-os.environ['NEOS_EMAIL'] = 'rishikeshkushwaha@gmail.com'
-neos= True
+os.environ['NEOS_EMAIL'] = 'abc@gmail.com'
+neos= False
 s = time.time()
 M = ConcreteModel()
 year = '2018'
-sites = 10
+sites = 2418
 
 forecast_demand = pd.read_csv('waste_management\\forecast_arima_2018-19.csv')
 print(forecast_demand.columns)
@@ -47,12 +47,13 @@ def obj_expression(M):
 + c*CAP_Depot-quicksum(M.biomass[i,j] for i in M.I for j in M.J) + c*CAP_Refinery-quicksum(M.pallet[i,j] for i in M.I for j in M.J)
 
 
-M.OBJ = Objective(rule=obj_expression, sense=maximize)
-
+M.OBJ = Objective(rule=obj_expression, sense=minimize)
+print('objective done', time.time()-s)
 
 def c2(M, i,j):
     return M.biomass[i, j] <= M.d[i]
 M.c2_c = Constraint(M.I,M.J, rule=c2)
+print('c2 done', time.time()-s)
 
 def c22(M, i,j):
     return M.biomass[i, j] <= M.d[j]
@@ -61,53 +62,65 @@ def c22(M, i,j):
 def c3(M, i):
     return quicksum(M.biomass[i, j] for j in M.J) <= 20000 * M.x[i]
 M.c3_c = Constraint(M.I, rule=c3)
+print('c3 done', time.time()-s)
 
 
 def c4(M, i):
     return quicksum(M.pallet[i, j] for j in M.J) <= 100000 * M.y[i]
 M.c4_c = Constraint(M.I, rule=c4)
+print('c4 done', time.time()-s)
 
 
 def c5(M):
     return quicksum(M.x[i] for i in M.I) <= 25
-# M.c5_c = Constraint(rule=c5)
+M.c5_c = Constraint(rule=c5)
+print('c5 done', time.time()-s)
 
 def c6(M):
     return quicksum(M.y[i] for i in M.I) <= 5
 
 
-# M.c6_c = Constraint(rule=c6)
+M.c6_c = Constraint(rule=c6)
+print('c6 done', time.time()-s)
+
 def c7(M):
     return quicksum(M.biomass[i, j] for i in M.I for j in M.J) >= 0.8 * quicksum(M.d[i] for i in M.I)
 
 
 M.c7_c = Constraint(rule=c7)
+print('c7 done', time.time()-s)
+
+def flow_balance(M,j):
+    return quicksum(M.biomass[i, j] for i in M.I) <= quicksum(M.pallet[j,k] for k in M.K)
+M.flow_balance_c = Constraint(M.J, rule=flow_balance)
+print('c flow done', time.time()-s)
 
 def c8(M):
     return quicksum(M.biomass[i, j] for i in M.I for j in M.J) <= quicksum(M.pallet[i, j] for i in M.I for j in M.J)
 
 
-M.c8_c = Constraint(rule=c8)
-M.pprint()
+# M.c8_c = Constraint(rule=c8)
+
 print('Modeling done...')
-M.write("network_opt_"+str(sites)+".lp", io_options = {"symbolic_solver_labels":True})
-if neos == True:
+M.write("network_opt_"+str(sites)+".lp")
+if neos:
     solver_manager = SolverManagerFactory('neos')
     results = solver_manager.solve(M, opt='cplex')
 else:
     solvername = 'cplex'
-    opt = SolverFactory(solvername)
+    opt = SolverFactory(solvername, tee=True)
 # opt.options["preprocessing_presolve"]='n'
 # opt.options["mipgap"]=0.05
     results = opt.solve(M, tee=True)
 print(results)
+
 result_data = []
 for i in M.I:
     result_data.append(
-        {"data_type": 'depot_location', "year": 20182019, "source_index": i, "destination": None,"value": None})
+        {"data_type": 'depot_location', "year": 20182019, "source_index": i, "destination": None,"value": M.x[i].value})
 for j in M.J:
     result_data.append(
-        {"data_type": 'refinery_location', "year": 20182019, "source_index": i, "destination": None,"value": None})
+        {"data_type": 'refinery_location', "year": 20182019, "source_index": j, "destination": None,"value": M.y[j].value})
 for i in M.I:
         result_data.append(
             {"data_type": 'biomass_forecast', "year": 2018, "source_index": i-1, "destination": None,"value": forecast_demand.iloc[i-1]})
@@ -125,5 +138,5 @@ for i in M.I:
             {"data_type": 'pellet_demand_supply', "year": 2018,"source_index": i - 1, "destination": j-1,
              "value": M.pallet[i,j].value})
 result_summary = pd.DataFrame(result_data)
-result_summary.to_csv('result.csv',index=False)
+result_summary.to_csv('result_'+str(sites)+'.csv',index=False)
 print(time.time() - s)
