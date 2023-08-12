@@ -4,18 +4,13 @@ import pandas as pd
 import time
 import os
 os.environ['NEOS_EMAIL'] = 'abc@gmail.com'
-neos= False
+neos= True
 s = time.time()
 M = ConcreteModel()
 year = '2018'
 sites = 2418
 
 forecast_demand = pd.read_csv('waste_management\\forecast_arima_2018-19.csv')
-print(forecast_demand.columns)
-
-
-def demand_function(M, i, ):
-    return forecast_demand[year].iloc[i-1]
 
 distance_df = pd.read_csv('waste_management\\dataset\\Distance_Matrix.csv')
 
@@ -24,6 +19,9 @@ def distance_function(M, i, j):
     return distance_np[i][j]
 forecast_demand_dict = forecast_demand.set_index('Index').to_dict()
 
+
+def demand_function(M, i, ):
+    return round(forecast_demand_dict[year][i-1],2)
 
 M.I = RangeSet(sites)
 M.J = RangeSet(sites)
@@ -41,10 +39,23 @@ M.y = Var(M.I, within=Binary)
 
 a, b, c = 0.001, 1, 1
 
+def distance_cost():
+    return quicksum(round(distance_np[i-1, j-1],2) * (M.biomass[i, j] + M.pallet[i,j]) for i in M.I for j in M.J)
+def underutilisation_cost():
+    return CAP_Depot-quicksum(M.biomass[i,j] for i in M.I for j in M.J) + c*CAP_Refinery-quicksum(M.pallet[i,j] for i in M.I for j in M.J)
+
 print('data preprocessing done --------------------------------')
+
+obj = 2
+if obj==1:
+    exp = a*distance_cost()
+elif obj==2:
+    exp = underutilisation_cost()
+else:
+    exp = a*distance_cost() + c*underutilisation_cost()
+
 def obj_expression(M):
-    return a * quicksum(distance_np[i-1, j-1] * (M.biomass[i, j] + M.pallet[i,j]) for i in M.I for j in M.J)
-+ c*CAP_Depot-quicksum(M.biomass[i,j] for i in M.I for j in M.J) + c*CAP_Refinery-quicksum(M.pallet[i,j] for i in M.I for j in M.J)
+    return exp
 
 
 M.OBJ = Objective(rule=obj_expression, sense=minimize)
@@ -78,15 +89,11 @@ print('c5 done', time.time()-s)
 
 def c6(M):
     return quicksum(M.y[i] for i in M.I) <= 5
-
-
 M.c6_c = Constraint(rule=c6)
 print('c6 done', time.time()-s)
 
 def c7(M):
     return quicksum(M.biomass[i, j] for i in M.I for j in M.J) >= 0.8 * quicksum(M.d[i] for i in M.I)
-
-
 M.c7_c = Constraint(rule=c7)
 print('c7 done', time.time()-s)
 
@@ -97,8 +104,6 @@ print('c flow done', time.time()-s)
 
 def c8(M):
     return quicksum(M.biomass[i, j] for i in M.I for j in M.J) <= quicksum(M.pallet[i, j] for i in M.I for j in M.J)
-
-
 # M.c8_c = Constraint(rule=c8)
 
 print('Modeling done...')
@@ -113,7 +118,7 @@ else:
 # opt.options["mipgap"]=0.05
     results = opt.solve(M, tee=True)
 print(results)
-
+exit(0)
 result_data = []
 for i in M.I:
     result_data.append(
