@@ -4,11 +4,11 @@ import pandas as pd
 import time
 import os
 os.environ['NEOS_EMAIL'] = 'abc@gmail.com'
-neos= True
+neos= False
 s = time.time()
 M = ConcreteModel()
 year = '2018'
-sites = 2418
+sites = 500
 
 forecast_demand = pd.read_csv('waste_management\\forecast_arima_2018-19.csv')
 
@@ -46,7 +46,7 @@ def underutilisation_cost():
 
 print('data preprocessing done --------------------------------')
 
-obj = 2
+obj = 1
 if obj==1:
     exp = a*distance_cost()
 elif obj==2:
@@ -70,15 +70,15 @@ def c22(M, i,j):
     return M.biomass[i, j] <= M.d[j]
 # M.c22_c = Constraint(M.I,M.J, rule=c22)
 
-def c3(M, i):
-    return quicksum(M.biomass[i, j] for j in M.J) <= 20000 * M.x[i]
-M.c3_c = Constraint(M.I, rule=c3)
+def c3(M, j):
+    return quicksum(M.biomass[i, j] for i in M.I) <= 20000 * M.x[j]
+M.c3_c = Constraint(M.J, rule=c3)
 print('c3 done', time.time()-s)
 
 
-def c4(M, i):
-    return quicksum(M.pallet[i, j] for j in M.J) <= 100000 * M.y[i]
-M.c4_c = Constraint(M.I, rule=c4)
+def c4(M, j):
+    return quicksum(M.pallet[i, j] for i in M.I) <= 100000 * M.y[j]
+M.c4_c = Constraint(M.J, rule=c4)
 print('c4 done', time.time()-s)
 
 
@@ -107,18 +107,17 @@ def c8(M):
 # M.c8_c = Constraint(rule=c8)
 
 print('Modeling done...')
-M.write("network_opt_"+str(sites)+".lp")
+# M.write("network_opt_"+str(sites)+".lp")
 if neos:
     solver_manager = SolverManagerFactory('neos')
     results = solver_manager.solve(M, opt='cplex')
 else:
-    solvername = 'cplex'
+    solvername = 'gurobi'
     opt = SolverFactory(solvername, tee=True)
 # opt.options["preprocessing_presolve"]='n'
 # opt.options["mipgap"]=0.05
     results = opt.solve(M, tee=True)
 print(results)
-exit(0)
 result_data = []
 for i in M.I:
     result_data.append(
