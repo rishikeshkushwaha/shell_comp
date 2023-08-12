@@ -1,0 +1,53 @@
+
+Log started (V22.1.0.0) Fri Aug 11 23:21:32 2023
+
+
+Problem 'network_opt_2418.lp' read.
+Read time = 69.14 sec. (1235.10 ticks)
+Version identifier: 22.1.0.0 | 2022-03-09 | 1a383f8ce
+Presolve has eliminated 5846725 rows and 5844307 columns...
+Presolve has improved bounds 5849157 times...
+Tried aggregator 2 times.
+MIP Presolve eliminated 5846725 rows and 5844307 columns.
+MIP Presolve modified 364 coefficients.
+Aggregator did 2418 substitutions.
+Reduced MIP has 4839 rows, 5851560 columns, and 17549844 nonzeros.
+Reduced MIP has 4836 binaries, 0 generals, 0 SOSs, and 0 indicators.
+Presolve time = 43.39 sec. (17788.92 ticks)
+Tried aggregator 1 time.
+Detecting symmetries...
+Reduced MIP has 4839 rows, 5851560 columns, and 17549844 nonzeros.
+Reduced MIP has 4836 binaries, 0 generals, 0 SOSs, and 0 indicators.
+Presolve time = 19.89 sec. (6483.43 ticks)
+Probing time = 6.02 sec. (462.30 ticks)
+MIP emphasis: balance optimality and feasibility.
+MIP search method: dynamic search.
+Parallel mode: deterministic, using up to 4 threads.
+Root relaxation solution time = 27.00 sec. (4959.62 ticks)
+
+        Nodes                                         Cuts/
+   Node  Left     Objective  IInf  Best Integer    Best Bound    ItCnt     Gap
+
+      0     0        0.0000  4676                      0.0000    18028         
+      0     0      758.6337  2810                  Cuts: 1309    19695         
+      0     0     1691.6540  2471                  Cuts: 1309    21651         
+
+Implied bound cuts applied:  2281
+Flow cuts applied:  201
+Gomory fractional cuts applied:  66
+Warning: MIP starts not constructed because of out-of-memory status.
+
+Root node processing (before b&c):
+  Real time             =  397.02 sec. (88866.98 ticks)
+Parallel b&c, 4 threads:
+  Real time             =    0.00 sec. (0.00 ticks)
+  Sync time (average)   =    0.00 sec.
+  Wait time (average)   =    0.00 sec.
+                          ------------
+Total (root+branch&cut) =  397.02 sec. (88866.98 ticks)
+CPLEX Error  1001: Out of memory.
+
+Error termination, CPLEX Error  1001.
+Solution time =  397.05 sec.
+Deterministic time = 88900.45 ticks  (223.90 ticks/sec)
+
