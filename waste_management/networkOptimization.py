@@ -4,20 +4,21 @@ import pandas as pd
 import time
 import os
 os.environ['NEOS_EMAIL'] = 'rdsawant25@gmail.com'
-neos= True
+neos= False
 s = time.time()
 M = ConcreteModel()
 year = '2018'
-sites = 20
+sites = 200
 big_M = 100000
 
-forecast_demand = pd.read_csv('forecast_arima_2018-19.csv')
-print(forecast_demand.columns)
+forecast_demand = pd.read_csv("waste_management/forecast_arima_2018-19.csv")
+
+potential_depot_refinery = pd.read_csv("waste_management/df_potential_depot_refinery.csv")
 
 def demand_function(M, i):
     return forecast_demand[year].iloc[i-1]
 
-distance_df = pd.read_csv('dataset\\Distance_Matrix.csv')
+distance_df = pd.read_csv('waste_management/dataset/Distance_Matrix.csv')
 
 distance_np = distance_df.values
 def distance_function(M, i, j):
@@ -66,6 +67,13 @@ def obj_expression(M):
 M.OBJ = Objective(rule=obj_expression, sense=minimize)
 print('objective done', time.time()-s)
 
+def fixing_depot_refinery():
+    for i, row in potential_depot_refinery.iterrows():
+        if row['Potential_refinery']=='False':
+            M.y[i].fix(0)
+        if row['Potential_depot']=='False':
+            M.x[i].fix(0)
+fixing_depot_refinery()
 def c2(M, i):
     return quicksum(M.biomass[i, j] for j in M.J) <= M.d[i]
 M.c2_c = Constraint(M.I, rule=c2)
@@ -113,7 +121,7 @@ def c9(M,j,k):
     return M.pallet[j, k] <= big_M * M.depot[j]
 M.c9_c = Constraint(M.J,M.K, rule=c9)
 
-M.pprint()
+# M.pprint()
 print('Modeling done...')
 # M.write("network_opt_"+str(sites)+".lp")
 if neos:
