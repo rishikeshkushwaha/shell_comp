@@ -8,7 +8,7 @@ neos= False
 s = time.time()
 M = ConcreteModel()
 year = '2018'
-sites = 200
+sites = 2418
 big_M = 100000
 
 forecast_demand = pd.read_csv("waste_management/forecast_arima_2018-19.csv")
@@ -42,7 +42,7 @@ M.pallet = Var(M.J, M.K, within=NonNegativeReals)
 M.biomass = Var(M.I, M.J, within=NonNegativeReals)
 M.depot = Var(M.I, within=Binary) #selected as
 M.refinery = Var(M.I, within=Binary)
-
+M.I.pprint()
 a, b, c = 0.001, 1, 1
 
 def distance_cost():
@@ -68,11 +68,12 @@ M.OBJ = Objective(rule=obj_expression, sense=minimize)
 print('objective done', time.time()-s)
 
 def fixing_depot_refinery():
-    for i, row in potential_depot_refinery.iterrows():
-        if row['Potential_refinery']=='False':
-            M.y[i].fix(0)
-        if row['Potential_depot']=='False':
-            M.x[i].fix(0)
+    for i, row in potential_depot_refinery[:sites].iterrows():
+        # print(row['Potential_refinery']==False)
+        if row['Potential_refinery']==False:
+            M.refinery[i+1].fix(0)
+        if row['Potential_depot']==False:
+            M.depot[i+1].fix(0)
 fixing_depot_refinery()
 def c2(M, i):
     return quicksum(M.biomass[i, j] for j in M.J) <= M.d[i]
@@ -122,7 +123,7 @@ def c9(M,j,k):
 M.c9_c = Constraint(M.J,M.K, rule=c9)
 
 # M.pprint()
-print('Modeling done...')
+print('Modeling done...',time.time()-s)
 # M.write("network_opt_"+str(sites)+".lp")
 if neos:
     solver_manager = SolverManagerFactory('neos')
