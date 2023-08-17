@@ -13,7 +13,7 @@ big_M = 100000
 
 forecast_demand = pd.read_csv("waste_management/forecast_arima_2018-19.csv")
 
-potential_depot_refinery = pd.read_csv("waste_management/df_potential_depot_refinery.csv")
+potential_depot_refinery = pd.read_csv("waste_management/df_potential_depot_refinery_8.csv")
 
 def demand_function(M, i):
     return forecast_demand[year].iloc[i-1]
@@ -131,8 +131,10 @@ if neos:
 else:
     solvername = 'gurobi'
     opt = SolverFactory(solvername, tee=True)
-# opt.options["preprocessing_presolve"]='n'
-# opt.options["mipgap"]=0.05
+    opt.options["Presolve"]=1
+    opt.options["MIPGap"]=0.1
+    # opt.options["Cuts"]=0.0
+    opt.options["Heuristics"]=0.8
     results = opt.solve(M, tee=True)
 print(results)
 result_data = []
@@ -156,13 +158,15 @@ for i in M.I:
 
 for i in M.I:
     for j in M.J:
-        result_data.append({ "year": 2018, "data_type": 'biomass_demand_supply', "source_index": i - 1, "destination": j - 1,
-             "value": value(M.biomass[i,j])})
+        if value(M.biomass[j, k]) >= 0.001:
+            result_data.append({ "year": 2018, "data_type": 'biomass_demand_supply', "source_index": i - 1, "destination": j - 1,
+                 "value": value(M.biomass[i, j])})
 
 for j in M.J:
     for k in M.K:
-        result_data.append({"year": 2018, "data_type": 'pellet_demand_supply', "source_index": j - 1, "destination": k - 1,
-             "value": value(M.pallet[j,k])})
+        if value(M.pallet[j, k]) >= 0.001:
+            result_data.append({"year": 2018, "data_type": 'pellet_demand_supply', "source_index": j - 1, "destination": k - 1,
+                 "value": value(M.pallet[j, k])})
 result_summary = pd.DataFrame(result_data)
 result_summary.to_csv('result_'+str(sites)+'.csv',index=False)
 print(time.time() - s)
