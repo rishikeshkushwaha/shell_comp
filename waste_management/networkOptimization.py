@@ -8,15 +8,13 @@ neos= False
 s = time.time()
 M = ConcreteModel()
 year = '2018'
-sites = 2418
+sites = 500
 big_M = 100000
 
 forecast_demand = pd.read_csv("waste_management/forecast_arima_2018-19.csv")
 
 potential_depot_refinery = pd.read_csv("waste_management/df_potential_depot_refinery_8.csv")
-
-def demand_function(M, i):
-    return forecast_demand[year].iloc[i-1]
+print(potential_depot_refinery[potential_depot_refinery['Potential_refinery']==True]['Index'].values)
 
 distance_df = pd.read_csv('waste_management/dataset/Distance_Matrix.csv')
 
@@ -24,7 +22,6 @@ distance_np = distance_df.values
 def distance_function(M, i, j):
     return distance_np[i][j]
 forecast_demand_dict = forecast_demand.set_index('Index').to_dict()
-
 
 def demand_function(M, i, ):
     return round(forecast_demand_dict[year][i-1],2)
@@ -37,14 +34,12 @@ M.d = Param(M.I, initialize=demand_function)
 
 CAP_Depot = 20000
 CAP_Refinery = 100000
-
 M.pallet = Var(M.J, M.K, within=NonNegativeReals)
 M.biomass = Var(M.I, M.J, within=NonNegativeReals)
 M.depot = Var(M.I, within=Binary) #selected as
 M.refinery = Var(M.I, within=Binary)
-M.I.pprint()
+M.x = Var(M.J, within=Binary) # demand served or not
 a, b, c = 0.001, 1, 1
-
 def distance_cost():
     return quicksum(round(distance_np[i-1, j-1],2) * (M.biomass[i, j] + M.pallet[i,j]) for i in M.I for j in M.J)
 def underutilisation_cost():
@@ -52,7 +47,7 @@ def underutilisation_cost():
 
 print('data preprocessing done --------------------------------')
 
-obj = 1
+obj = 3
 if obj==1:
     exp = a*distance_cost()
 elif obj==2:
@@ -76,11 +71,15 @@ def fixing_depot_refinery():
             M.depot[i+1].fix(0)
 fixing_depot_refinery()
 def c2(M, i):
-    return quicksum(M.biomass[i, j] for j in M.J) <= M.d[i]
+    return quicksum(M.biomass[i, j] for j in M.J)<= big_M*M.x[i]
 M.c2_c = Constraint(M.I, rule=c2)
+
+def all_demand_served(M):
+    return quicksum(M.x[i] for i in M.I) == sites
+M.all_demand_served_c = Constraint(rule=all_demand_served)
 def c22(M, i,j):
-    return M.biomass[i, j] <= M.d[j]
-# M.c22_c = Constraint(M.I,M.J, rule=c22)
+    return M.biomass[i, j] <= M.d[i]
+M.c22_c = Constraint(M.I,M.J, rule=c22)
 
 def c3(M, j):
     return quicksum(M.biomass[i, j] for i in M.I) <= CAP_Depot * M.depot[j]
@@ -132,9 +131,9 @@ else:
     solvername = 'gurobi'
     opt = SolverFactory(solvername, tee=True)
     opt.options["Presolve"]=1
-    opt.options["MIPGap"]=0.1
+    opt.options["MIPGap"]=0.0
     # opt.options["Cuts"]=0.0
-    opt.options["Heuristics"]=0.8
+    # opt.options["Heuristics"]=0.8
     results = opt.solve(M, tee=True)
 print(results)
 result_data = []
@@ -158,17 +157,17 @@ for i in M.I:
 
 for i in M.I:
     for j in M.J:
-        if value(M.biomass[j, k]) >= 0.001:
+        if value(M.biomass[i, j]):
             result_data.append({ "year": 2018, "data_type": 'biomass_demand_supply', "source_index": i - 1, "destination": j - 1,
                  "value": value(M.biomass[i, j])})
 
 for j in M.J:
     for k in M.K:
-        if value(M.pallet[j, k]) >= 0.001:
+        if value(M.pallet[j, k]):
             result_data.append({"year": 2018, "data_type": 'pellet_demand_supply', "source_index": j - 1, "destination": k - 1,
                  "value": value(M.pallet[j, k])})
 result_summary = pd.DataFrame(result_data)
-result_summary.to_csv('result_'+str(sites)+'.csv',index=False)
+result_summary.to_csv('result_'+str(sites)+'_'+str(obj)+'.csv',index=False)
 print(time.time() - s)
 
 # for v_data in M.component_data_objects(Var, descend_into=True):
