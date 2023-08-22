@@ -6,7 +6,7 @@ import os
 from math import sin, cos, sqrt, atan2, radians
 
 os.environ['NEOS_EMAIL'] = 'rdsawant25@gmail.com'
-neos= True
+neos= False
 s = time.time()
 M = ConcreteModel()
 year = '2018'
@@ -31,7 +31,7 @@ def calculate_dist(lat1,lon1,lat2,lon2):
     distance = R * c
     return distance
 
-cluster_demand = pd.read_csv("cluster_demand.csv")
+cluster_demand = pd.read_csv("cluster_demand_{0}.csv".format(sites))
 cluster_demand["centroid_dist"] = cluster_demand.apply(lambda x: calculate_dist(x["y_loc"],x["x_loc"],x["Latitude"],x["Longitude"]),axis=1)
 
 near_centroid_df = cluster_demand.loc[cluster_demand[["Index","cluster","centroid_dist"]].groupby("cluster").centroid_dist.idxmin(),["Index","cluster"]]
