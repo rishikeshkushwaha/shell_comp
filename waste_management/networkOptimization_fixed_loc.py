@@ -25,20 +25,20 @@ forecast_demand_dict = forecast_demand.set_index('Index').to_dict()
 # forecast_demand_dict = forecast_demand.set_index('cluster').to_dict()
 
 def demand_function(M, i, ):
-    return round(forecast_demand_dict[str(2018)][i-1],2)
+    return 1.05 * forecast_demand_dict[str(2018)][i-1]
 
-result_df = pd.read_csv("result_50_3.csv")
+result_df = pd.read_csv("result_100_3.csv")
 depot_loc = result_df.loc[result_df["data_type"]=="depot_location","source_index"].values
 ref_loc = result_df.loc[result_df["data_type"]=="refinery_location","source_index"].values
 
 M.I = RangeSet(sites)
-M.J = depot_loc # RangeSet(sites)
-M.K = ref_loc #RangeSet(sites)
+M.J = [j+1 for j in depot_loc] # RangeSet(sites)
+M.K = [k+1 for k in ref_loc] #RangeSet(sites)
 M.d = Param(M.I, initialize=demand_function)
 # M.distance = Param(M.I, M.J, initialize=distance_function)
 
-CAP_Depot = 19999.9
-CAP_Refinery = 100000-0.1
+CAP_Depot = 19999.99
+CAP_Refinery = 99999.99
 M.pallet = Var(M.J, M.K, within=NonNegativeReals)
 M.biomass = Var(M.I, M.J, within=NonNegativeReals)
 M.depot = Var(M.J, within=Binary) #selected as
@@ -128,7 +128,7 @@ def flow_balance(M,j):
 # M.flow_balance_c = Constraint(M.J, rule=flow_balance)
 
 def c8(M, j):
-    return quicksum(M.biomass[i, j] for i in M.I) - quicksum(M.pallet[j, k] for k in M.K) <= 0.0001
+    return quicksum(M.biomass[i, j] for i in M.I) - quicksum(M.pallet[j, k] for k in M.K) == 0
 M.c8_c = Constraint(M.J, rule=c8) # Same as flow balance
 print('c flow done', time.time()-s)
 
@@ -150,7 +150,8 @@ else:
     solvername = 'gurobi'
     opt = SolverFactory(solvername, tee=True)
     opt.options["Presolve"]=1
-    opt.options["MIPGap"]=0.0
+    opt.options["MIPGap"]=0.01
+    opt.options["TimeLimit"] = 900
     # opt.options["Cuts"]=0.0
     # opt.options["Heuristics"]=0.8
     results = opt.solve(M, tee=True)
@@ -176,13 +177,13 @@ for i in M.I:
 
 for i in M.I:
     for j in M.J:
-        if value(M.biomass[i, j]):
+        if value(M.biomass[i, j]) > 0.0000001:
             result_data.append({ "year": year, "data_type": 'biomass_demand_supply', "source_index": i - 1, "destination_index": j - 1,
                  "value": value(M.biomass[i, j])})
 
 for j in M.J:
     for k in M.K:
-        if value(M.pallet[j, k]):
+        if value(M.pallet[j, k]) > 0.0000001:
             result_data.append({"year": year, "data_type": 'pellet_demand_supply', "source_index": j - 1, "destination_index": k - 1,
                  "value": value(M.pallet[j, k])})
 result_summary = pd.DataFrame(result_data)

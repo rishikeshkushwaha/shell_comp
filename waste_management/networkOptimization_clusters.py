@@ -10,7 +10,7 @@ neos= False
 s = time.time()
 M = ConcreteModel()
 year = '2018'
-sites = 50
+sites = 100
 big_M = 100000
 
 def calculate_dist(lat1,lon1,lat2,lon2):
@@ -80,8 +80,8 @@ a, b, c = 0.001, 1, 1
 def distance_cost():
     return quicksum(round(distance_np[i-1][j-1],2) * (M.biomass[i, j] + M.pallet[i,j]) for i in M.I for j in M.J)
 def underutilisation_cost():
-    return quicksum(M.depot[j] * (CAP_Depot-quicksum(M.biomass[i,j] for i in M.I)) for j in M.J) \
-        + quicksum(M.refinery[k] * (CAP_Refinery-quicksum(M.pallet[j,k] for j in M.J)) for k in M.K)
+    return quicksum((M.depot[j] * CAP_Depot-quicksum(M.biomass[i,j] for i in M.I)) for j in M.J) \
+        + quicksum((M.refinery[k] * CAP_Refinery-quicksum(M.pallet[j,k] for j in M.J)) for k in M.K)
 
 print('data preprocessing done --------------------------------')
 
@@ -175,7 +175,8 @@ else:
     solvername = 'gurobi'
     opt = SolverFactory(solvername, tee=True)
     opt.options["Presolve"]=1
-    opt.options["MIPGap"]=0.0
+    opt.options["MIPGap"]=0.01
+    opt.options["TimeLimit"] = 900
     # opt.options["Cuts"]=0.0
     # opt.options["Heuristics"]=0.8
     results = opt.solve(M, tee=True)
