@@ -33,7 +33,7 @@ M.K = RangeSet(sites)
 M.d = Param(M.I, initialize=demand_function)
 # M.distance = Param(M.I, M.J, initialize=distance_function)
 
-CAP_Depot = 20000
+CAP_Depot = 19999.95
 CAP_Refinery = 100000
 M.pallet = Var(M.J, M.K, within=NonNegativeReals)
 M.biomass = Var(M.I, M.J, within=NonNegativeReals)
@@ -67,10 +67,16 @@ depots = [i for i in depots if i < sites]
 refinery = result[(result['year']==20182019)&(result['data_type']=='refinery_location')]['source_index'].values
 refinery = [i for i in refinery if i < sites]
 def fixing_depot_refinery():
-    for j in depots:
-        M.depot[j+1].fix(1)
-    for j in refinery:
-        M.refinery[j+1].fix(1)
+    for j in M.J:
+        if j in depots:
+            M.depot[j+1].fix(1)
+        elif j + 1 < sites:
+            M.depot[j+1].fix(0)
+    for j in M.K:
+        if j in refinery:
+            M.refinery[j+1].fix(1)
+        elif j+1 <sites:
+            M.refinery[j+1].fix(0)
 
 fixing_depot_refinery()
 def c2(M, i):

@@ -9,7 +9,7 @@ os.environ['NEOS_EMAIL'] = 'rdsawant25@gmail.com'
 neos= False
 s = time.time()
 M = ConcreteModel()
-year = 2018
+year = 2019
 sites = 2418
 big_M = 100000
 
@@ -25,7 +25,7 @@ forecast_demand_dict = forecast_demand.set_index('Index').to_dict()
 # forecast_demand_dict = forecast_demand.set_index('cluster').to_dict()
 
 def demand_function(M, i, ):
-    return round(forecast_demand_dict[str(year)][i-1],2)
+    return round(forecast_demand_dict[str(2018)][i-1],2)
 
 result_df = pd.read_csv("result_50_3.csv")
 depot_loc = result_df.loc[result_df["data_type"]=="depot_location","source_index"].values
@@ -37,8 +37,8 @@ M.K = ref_loc #RangeSet(sites)
 M.d = Param(M.I, initialize=demand_function)
 # M.distance = Param(M.I, M.J, initialize=distance_function)
 
-CAP_Depot = 20000
-CAP_Refinery = 100000
+CAP_Depot = 19999.9
+CAP_Refinery = 100000-0.1
 M.pallet = Var(M.J, M.K, within=NonNegativeReals)
 M.biomass = Var(M.I, M.J, within=NonNegativeReals)
 M.depot = Var(M.J, within=Binary) #selected as
@@ -50,8 +50,8 @@ def distance_cost():
     return quicksum(round(distance_np[i - 1][j - 1], 2) * M.biomass[i, j] for i in M.I for j in M.J) \
         + quicksum(round(distance_np[j - 1][k - 1], 2) * M.pallet[j, k] for j in M.J for k in M.K)
 def underutilisation_cost():
-    return quicksum(M.depot[j] * (CAP_Depot-quicksum(M.biomass[i,j] for i in M.I)) for j in M.J) \
-        + quicksum(M.refinery[k] * (CAP_Refinery-quicksum(M.pallet[j,k] for j in M.J)) for k in M.K)
+    return quicksum((CAP_Depot-quicksum(M.biomass[i,j] for i in M.I)) for j in M.J) \
+        + quicksum((CAP_Refinery-quicksum(M.pallet[j,k] for j in M.J)) for k in M.K)
 
 print('data preprocessing done --------------------------------')
 
@@ -94,7 +94,7 @@ M.c2_c = Constraint(M.I, rule=c2)
 
 def c22(M, i,j):
     return M.biomass[i, j] <= M.d[i]
-# M.c22_c = Constraint(M.I,M.J, rule=c22)
+M.c22_c = Constraint(M.I,M.J, rule=c22)
 
 def c3(M, j):
     return quicksum(M.biomass[i, j] for i in M.I) <= CAP_Depot * M.depot[j]
@@ -125,12 +125,12 @@ print('c7 done', time.time()-s)
 
 def flow_balance(M,j):
     return quicksum(M.biomass[i, j] for i in M.I) <= quicksum(M.pallet[j,k] for k in M.K)
-M.flow_balance_c = Constraint(M.J, rule=flow_balance)
-print('c flow done', time.time()-s)
+# M.flow_balance_c = Constraint(M.J, rule=flow_balance)
 
 def c8(M, j):
-    return quicksum(M.biomass[i, j] for i in M.I) == quicksum(M.pallet[j, k] for k in M.K)
-# M.c8_c = Constraint(M.J, rule=c8) # Same as flow balance
+    return quicksum(M.biomass[i, j] for i in M.I) - quicksum(M.pallet[j, k] for k in M.K) <= 0.0001
+M.c8_c = Constraint(M.J, rule=c8) # Same as flow balance
+print('c flow done', time.time()-s)
 
 def c9(M,j,k):
     return M.pallet[j, k] <= big_M * M.depot[j]
@@ -142,7 +142,7 @@ def c10(M,j):
 
 # M.pprint()
 print('Modeling done...',time.time()-s)
-M.write("network_opt_"+str(sites)+".lp")
+# M.write("network_opt_"+str(sites)+".lp")
 if neos:
     solver_manager = SolverManagerFactory('neos')
     results = solver_manager.solve(M, opt='cplex')
@@ -169,20 +169,20 @@ for k in M.K:
 
 for i in M.I:
     result_data.append({"year": year, "data_type": 'biomass_forecast', "source_index": i-1, "destination_index": None,
-         "value": forecast_demand.loc[forecast_demand["Index"]==i-1,year].values[0]})
+         "value": demand_function(M,i)})
 # for i in M.I:
 #         result_data.append(
 #             {"data_type": 'biomass_forecast', "year": 2019, "source_index": i-1, "destination_index": None,"value": forecast_demand.iloc[i-1]*1.2})
 
 for i in M.I:
     for j in M.J:
-        if value(M.biomass[i, j]) > 0.0000001:
+        if value(M.biomass[i, j]):
             result_data.append({ "year": year, "data_type": 'biomass_demand_supply', "source_index": i - 1, "destination_index": j - 1,
                  "value": value(M.biomass[i, j])})
 
 for j in M.J:
     for k in M.K:
-        if value(M.pallet[j, k]) > 0.0000001:
+        if value(M.pallet[j, k]):
             result_data.append({"year": year, "data_type": 'pellet_demand_supply', "source_index": j - 1, "destination_index": k - 1,
                  "value": value(M.pallet[j, k])})
 result_summary = pd.DataFrame(result_data)
