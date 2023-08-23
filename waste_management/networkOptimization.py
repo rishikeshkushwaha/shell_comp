@@ -72,11 +72,11 @@ def fixing_depot_refinery():
 fixing_depot_refinery()
 def c2(M, i):
     return quicksum(M.biomass[i, j] for j in M.J)<= big_M*M.x[i]
-M.c2_c = Constraint(M.I, rule=c2)
+# M.c2_c = Constraint(M.I, rule=c2)
 
 def all_demand_served(M):
     return quicksum(M.x[i] for i in M.I) == sites
-M.all_demand_served_c = Constraint(rule=all_demand_served)
+# M.all_demand_served_c = Constraint(rule=all_demand_served)
 def c22(M, i,j):
     return M.biomass[i, j] <= M.d[i]
 M.c22_c = Constraint(M.I,M.J, rule=c22)
@@ -119,7 +119,7 @@ def c8(M, j):
 
 def c9(M,j,k):
     return M.pallet[j, k] <= big_M * M.depot[j]
-M.c9_c = Constraint(M.J,M.K, rule=c9)
+# M.c9_c = Constraint(M.J,M.K, rule=c9)
 
 # M.pprint()
 print('Modeling done...',time.time()-s)
@@ -131,9 +131,9 @@ else:
     solvername = 'gurobi'
     opt = SolverFactory(solvername, tee=True)
     opt.options["Presolve"]=1
-    opt.options["MIPGap"]=0.0
+    opt.options["MIPGap"]=0.1
     # opt.options["Cuts"]=0.0
-    # opt.options["Heuristics"]=0.8
+    opt.options["Heuristics"]=0.8
     results = opt.solve(M, tee=True)
 print(results)
 result_data = []
@@ -141,15 +141,15 @@ result_data = []
 for j in M.J:
     if value(M.depot[j]) == 1:
         result_data.append(
-            {"year": 20182019, "data_type": 'depot_location', "source_index": j-1, "destination": None,"value": None})
+            {"year": 20182019, "data_type": 'depot_location', "source_index": j-1, "destination_index": None,"value": None})
 
 for k in M.K:
     if value(M.refinery[k]) == 1:
         result_data.append(
-            {"year": 20182019, "data_type": 'refinery_location', "source_index": k-1, "destination": None,"value": None})
+            {"year": 20182019, "data_type": 'refinery_location', "source_index": k-1, "destination_index": None,"value": None})
 
 for i in M.I:
-    result_data.append({"year": 2018, "data_type": 'biomass_forecast', "source_index": i-1, "destination": None,
+    result_data.append({"year": 2018, "data_type": 'biomass_forecast', "source_index": i-1, "destination_index": None,
          "value": forecast_demand.loc[forecast_demand["Index"]==i-1,year].values[0]})
 # for i in M.I:
 #         result_data.append(
@@ -158,16 +158,16 @@ for i in M.I:
 for i in M.I:
     for j in M.J:
         if value(M.biomass[i, j]):
-            result_data.append({ "year": 2018, "data_type": 'biomass_demand_supply', "source_index": i - 1, "destination": j - 1,
+            result_data.append({ "year": 2018, "data_type": 'biomass_demand_supply', "source_index": i - 1, "destination_index": j - 1,
                  "value": value(M.biomass[i, j])})
 
 for j in M.J:
     for k in M.K:
         if value(M.pallet[j, k]):
-            result_data.append({"year": 2018, "data_type": 'pellet_demand_supply', "source_index": j - 1, "destination": k - 1,
+            result_data.append({"year": 2018, "data_type": 'pellet_demand_supply', "source_index": j - 1, "destination_index": k - 1,
                  "value": value(M.pallet[j, k])})
 result_summary = pd.DataFrame(result_data)
-result_summary.to_csv('result_'+str(sites)+'_'+str(obj)+'.csv',index=False)
+result_summary.to_csv('result_'+str(sites)+'_'+str(obj)+'_'+str(year)+'.csv',index=False)
 print(time.time() - s)
 
 # for v_data in M.component_data_objects(Var, descend_into=True):
