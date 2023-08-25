@@ -8,12 +8,12 @@ neos= False
 s = time.time()
 M = ConcreteModel()
 year = '2018'
-sites = 500
-big_M = 100000
+sites = 2418
+big_M = 19999.99
 
 forecast_demand = pd.read_csv("waste_management/forecast_arima_2018-19.csv")
 
-potential_depot_refinery = pd.read_csv("waste_management/df_potential_depot_refinery_8.csv")
+potential_depot_refinery = pd.read_csv("waste_management/df_potential_depot_refinery_4.csv")
 print(potential_depot_refinery[potential_depot_refinery['Potential_refinery']==True]['Index'].values)
 
 distance_df = pd.read_csv('waste_management/dataset/Distance_Matrix.csv')
@@ -25,15 +25,17 @@ forecast_demand_dict = forecast_demand.set_index('Index').to_dict()
 
 def demand_function(M, i, ):
     return round(forecast_demand_dict[year][i-1],2)
+depot_loc = (potential_depot_refinery[potential_depot_refinery['Potential_depot']==True]['Index'].values)
+ref_loc = (potential_depot_refinery[potential_depot_refinery['Potential_refinery']==True]['Index'].values)
 
 M.I = RangeSet(sites)
-M.J = RangeSet(sites)
-M.K = RangeSet(sites)
+M.J = [j+1 for j in depot_loc]
+M.K = [k+1 for k in ref_loc]
 M.d = Param(M.I, initialize=demand_function)
 # M.distance = Param(M.I, M.J, initialize=distance_function)
 
-CAP_Depot = 20000
-CAP_Refinery = 100000
+CAP_Depot = 19999
+CAP_Refinery = 99999
 M.pallet = Var(M.J, M.K, within=NonNegativeReals)
 M.biomass = Var(M.I, M.J, within=NonNegativeReals)
 M.depot = Var(M.I, within=Binary) #selected as
@@ -41,9 +43,10 @@ M.refinery = Var(M.I, within=Binary)
 M.x = Var(M.J, within=Binary) # demand served or not
 a, b, c = 0.001, 1, 1
 def distance_cost():
-    return quicksum(round(distance_np[i-1, j-1],2) * (M.biomass[i, j] + M.pallet[i,j]) for i in M.I for j in M.J)
+    return quicksum(round(distance_np[i - 1][j - 1], 2) * M.biomass[i, j] for i in M.I for j in M.J) \
+        + quicksum(round(distance_np[j - 1][k - 1], 2) * M.pallet[j, k] for j in M.J for k in M.K)
 def underutilisation_cost():
-    return CAP_Depot-quicksum(M.biomass[i,j] for i in M.I for j in M.J) + c*CAP_Refinery-quicksum(M.pallet[i,j] for i in M.I for j in M.J)
+    return CAP_Depot-quicksum(M.biomass[i,j] for i in M.I for j in M.J) + c*CAP_Refinery-quicksum(M.pallet[j,k] for j in M.J for k in M.K)
 
 print('data preprocessing done --------------------------------')
 
@@ -71,8 +74,8 @@ def fixing_depot_refinery():
             M.depot[i+1].fix(0)
 fixing_depot_refinery()
 def c2(M, i):
-    return quicksum(M.biomass[i, j] for j in M.J)<= big_M*M.x[i]
-# M.c2_c = Constraint(M.I, rule=c2)
+    return quicksum(M.biomass[i, j] for j in M.J)<=M.d[i]
+M.c2_c = Constraint(M.I, rule=c2)
 
 def all_demand_served(M):
     return quicksum(M.x[i] for i in M.I) == sites
@@ -110,16 +113,16 @@ print('c7 done', time.time()-s)
 
 def flow_balance(M,j):
     return quicksum(M.biomass[i, j] for i in M.I) <= quicksum(M.pallet[j,k] for k in M.K)
-M.flow_balance_c = Constraint(M.J, rule=flow_balance)
-print('c flow done', time.time()-s)
+# M.flow_balance_c = Constraint(M.J, rule=flow_balance)
 
 def c8(M, j):
     return quicksum(M.biomass[i, j] for i in M.I) == quicksum(M.pallet[j, k] for k in M.K)
-# M.c8_c = Constraint(M.J, rule=c8) # Same as flow balance
+M.c8_c = Constraint(M.J, rule=c8) # Same as flow balance
+print('c flow done', time.time()-s)
 
 def c9(M,j,k):
     return M.pallet[j, k] <= big_M * M.depot[j]
-# M.c9_c = Constraint(M.J,M.K, rule=c9)
+M.c9_c = Constraint(M.J,M.K, rule=c9)
 
 # M.pprint()
 print('Modeling done...',time.time()-s)
@@ -131,9 +134,9 @@ else:
     solvername = 'gurobi'
     opt = SolverFactory(solvername, tee=True)
     opt.options["Presolve"]=1
-    opt.options["MIPGap"]=0.1
+    opt.options["MIPGap"]=0.01
     # opt.options["Cuts"]=0.0
-    opt.options["Heuristics"]=0.8
+    opt.options["Heuristics"]=1
     results = opt.solve(M, tee=True)
 print(results)
 result_data = []
@@ -150,20 +153,20 @@ for k in M.K:
 
 for i in M.I:
     result_data.append({"year": 2018, "data_type": 'biomass_forecast', "source_index": i-1, "destination_index": None,
-         "value": forecast_demand.loc[forecast_demand["Index"]==i-1,year].values[0]})
+         "value": demand_function(M,i)})
 # for i in M.I:
 #         result_data.append(
 #             {"data_type": 'biomass_forecast', "year": 2019, "source_index": i-1, "destination": None,"value": forecast_demand.iloc[i-1]*1.2})
 
 for i in M.I:
     for j in M.J:
-        if value(M.biomass[i, j]):
+        if value(M.biomass[i, j])>0.0000001:
             result_data.append({ "year": 2018, "data_type": 'biomass_demand_supply', "source_index": i - 1, "destination_index": j - 1,
                  "value": value(M.biomass[i, j])})
 
 for j in M.J:
     for k in M.K:
-        if value(M.pallet[j, k]):
+        if value(M.pallet[j, k])>0.0000001:
             result_data.append({"year": 2018, "data_type": 'pellet_demand_supply', "source_index": j - 1, "destination_index": k - 1,
                  "value": value(M.pallet[j, k])})
 result_summary = pd.DataFrame(result_data)
