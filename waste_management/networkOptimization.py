@@ -46,7 +46,9 @@ def distance_cost():
     return quicksum(round(distance_np[i - 1][j - 1], 2) * M.biomass[i, j] for i in M.I for j in M.J) \
         + quicksum(round(distance_np[j - 1][k - 1], 2) * M.pallet[j, k] for j in M.J for k in M.K)
 def underutilisation_cost():
-    return CAP_Depot-quicksum(M.biomass[i,j] for i in M.I for j in M.J) + c*CAP_Refinery-quicksum(M.pallet[j,k] for j in M.J for k in M.K)
+    return CAP_Depot-quicksum(M.biomass[i,j] for i in M.I for j in M.J) + c*CAP_Refinery-quicksum(M.pallet[j,k] for j in M.J for k in M.K)\
++ 100005*quicksum(M.depot[j] for j in M.J) + 100005*quicksum(M.refinery[k] for k in M.K)
+
 
 print('data preprocessing done --------------------------------')
 
@@ -134,7 +136,7 @@ else:
     solvername = 'gurobi'
     opt = SolverFactory(solvername, tee=True)
     opt.options["Presolve"]=1
-    opt.options["MIPGap"]=0.01
+    opt.options["MIPGap"]=0.07
     # opt.options["Cuts"]=0.0
     opt.options["Heuristics"]=1
     results = opt.solve(M, tee=True)

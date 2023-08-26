@@ -10,7 +10,7 @@ M = ConcreteModel()
 year = '2019'
 sites = 2418
 big_M = 19999.99
-factor = 1.1
+factor = 1.03
 forecast_demand = pd.read_csv("waste_management/forecast_arima_2018-19.csv")
 
 potential_depot_refinery = pd.read_csv("waste_management/df_potential_depot_refinery_4.csv")
@@ -46,8 +46,8 @@ def distance_cost():
     return quicksum(round(distance_np[i - 1][j - 1], 2) * M.biomass[i, j] for i in M.I for j in M.J) \
         + quicksum(round(distance_np[j - 1][k - 1], 2) * M.pallet[j, k] for j in M.J for k in M.K)
 def underutilisation_cost():
-    return CAP_Depot-quicksum(M.biomass[i,j] for i in M.I for j in M.J) + c*CAP_Refinery-quicksum(M.pallet[j,k] for j in M.J for k in M.K)
-
+    return (CAP_Depot-quicksum(M.biomass[i,j] for i in M.I for j in M.J) + c*CAP_Refinery-quicksum(M.pallet[j,k] for j in M.J for k in M.K)
+            + 100000*quicksum(M.depot[j] for j in M.J) + 1000000*quicksum(M.refinery[k] for k in M.K))
 print('data preprocessing done --------------------------------')
 
 obj = 3
