@@ -7,11 +7,11 @@ os.environ['NEOS_EMAIL'] = 'rdsawant25@gmail.com'
 neos= False
 s = time.time()
 M = ConcreteModel()
-year = '2018'
+year = '2018_fb'
 sites = 2418
 big_M = 19999.99
-
-forecast_demand = pd.read_csv("waste_management/forecast_arima_2018-19.csv")
+factor = 0.99
+forecast_demand = pd.read_csv("waste_management/forecast_fb_2018-19.csv")
 
 potential_depot_refinery = pd.read_csv("waste_management/df_potential_depot_refinery_4.csv")
 print(potential_depot_refinery[potential_depot_refinery['Potential_refinery']==True]['Index'].values)
@@ -24,7 +24,7 @@ def distance_function(M, i, j):
 forecast_demand_dict = forecast_demand.set_index('Index').to_dict()
 
 def demand_function(M, i, ):
-    return round(forecast_demand_dict[year][i-1],2)
+    return factor*round(forecast_demand_dict[year][i-1],4)
 depot_loc = (potential_depot_refinery[potential_depot_refinery['Potential_depot']==True]['Index'].values)
 ref_loc = (potential_depot_refinery[potential_depot_refinery['Potential_refinery']==True]['Index'].values)
 
@@ -99,12 +99,12 @@ print('c4 done', time.time()-s)
 
 
 def c5(M):
-    return quicksum(M.depot[j] for j in M.J) <= 25
+    return quicksum(M.depot[j] for j in M.J) <= 14
 M.c5_c = Constraint(rule=c5)
 print('c5 done', time.time()-s)
 
 def c6(M):
-    return quicksum(M.refinery[k] for k in M.K) <= 5
+    return quicksum(M.refinery[k] for k in M.K) <= 3
 M.c6_c = Constraint(rule=c6)
 print('c6 done', time.time()-s)
 

@@ -7,18 +7,18 @@ os.environ['NEOS_EMAIL'] = 'rdsawant25@gmail.com'
 neos= False
 s = time.time()
 M = ConcreteModel()
-year = '2019'
+year = '2019_fb'
 sites = 2418
 big_M = 19999.99
-factor = 1.03
-forecast_demand = pd.read_csv("waste_management/forecast_arima_2018-19.csv")
+factor = 1.05
+forecast_demand = pd.read_csv("waste_management/forecast_fb_2018-19.csv")
 
 potential_depot_refinery = pd.read_csv("waste_management/df_potential_depot_refinery_4.csv")
 depot_loc = (potential_depot_refinery[potential_depot_refinery['Potential_depot']==True]['Index'].values)
 ref_loc = (potential_depot_refinery[potential_depot_refinery['Potential_refinery']==True]['Index'].values)
 
 distance_df = pd.read_csv('waste_management/dataset/Distance_Matrix.csv')
-result = pd.read_csv('result_2418_3_2018.csv')
+result = pd.read_csv('result_2418_3_2018_fb.csv')
 print(result.dtypes)
 distance_np = distance_df.values
 def distance_function(M, i, j):
@@ -164,7 +164,7 @@ for k in M.K:
             {"year": 20182019, "data_type": 'refinery_location', "source_index": k-1, "destination_index": None,"value": None})
 
 for i in M.I:
-    result_data.append({"year": year, "data_type": 'biomass_forecast', "source_index": i-1, "destination_index": None,
+    result_data.append({"year": 2019, "data_type": 'biomass_forecast', "source_index": i-1, "destination_index": None,
          "value": demand_function(M,i)})
 # for i in M.I:
 #         result_data.append(
@@ -173,13 +173,13 @@ for i in M.I:
 for i in M.I:
     for j in M.J:
         if value(M.biomass[i, j])>0.0000001:
-            result_data.append({ "year": year, "data_type": 'biomass_demand_supply', "source_index": i - 1, "destination_index": j - 1,
+            result_data.append({ "year": 2019, "data_type": 'biomass_demand_supply', "source_index": i - 1, "destination_index": j - 1,
                  "value": value(M.biomass[i, j])})
 
 for j in M.J:
     for k in M.K:
         if value(M.pallet[j, k])>0.0000001:
-            result_data.append({"year": year, "data_type": 'pellet_demand_supply', "source_index": j - 1, "destination_index": k - 1,
+            result_data.append({"year": 2019, "data_type": 'pellet_demand_supply', "source_index": j - 1, "destination_index": k - 1,
                  "value": value(M.pallet[j, k])})
 result_summary = pd.DataFrame(result_data)
 result_summary.to_csv('result_'+str(sites)+'_'+str(obj)+'_'+str(year)+'.csv',index=False)
